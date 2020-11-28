@@ -12,7 +12,7 @@ void db_add(database_t *db, student_t s){
 
     db->data[db->lsize] = s;
     db->lsize += 1;
-    free(old);
+    std::free(old);
 }
 
 
@@ -33,7 +33,7 @@ void db_delete(database_t *db, student_t *s){
     };
 
     db->lsize -= 1;
-    free(old);
+    std::free(old);
 }
 
 
