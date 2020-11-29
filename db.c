@@ -1,18 +1,24 @@
 #include "db.h"
 
+#include <stdlib.h>
+
 void db_add(database_t *db, student_t s){
     int i;
+
+    if (db->lsize == db->psize/sizeof(student_t)){
+        db->psize *= 2;
+    }
+
     student_t *old = db->data;
-    db->psize += sizeof(student_t);
     db->data = (student_t *) malloc(db->psize);
 
     for (i = 0; i < db->lsize; ++i){
         db->data[i] = old[i];
-    };
+    }
 
     db->data[db->lsize] = s;
     db->lsize += 1;
-    std::free(old);
+    free(old);
 }
 
 
@@ -33,7 +39,7 @@ void db_delete(database_t *db, student_t *s){
     };
 
     db->lsize -= 1;
-    std::free(old);
+    free(old);
 }
 
 
