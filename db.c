@@ -6,27 +6,28 @@
 void db_add(database_t *db, student_t s){
     int i;
     printf("adding ");
-    if (db->lsize == db->psize/sizeof(student_t)){
+    if (db->lsize == db->psize/sizeof(student_t)) {
         db->psize *= 2;
+        student_t *old = db->data;
+        db->data = (student_t *) malloc(db->psize);
+        for (i = 0; i < db->lsize; ++i) {
+            db->data[i] = old[i];
+        }
+        db->data[db->lsize] = s;
+        free(old);
     }
 
-    student_t *old = db->data;
-    db->data = (student_t *) malloc(db->psize);
-
-    for (i = 0; i < db->lsize; ++i){
-        db->data[i] = old[i];
+    else{
+        db->data[db->lsize] = s;
     }
-
-    db->data[db->lsize] = s;
     db->lsize += 1;
-    free(old);
 }
 
 
 void db_delete(database_t *db, student_t *s){
     int i;
 
-    if (db->lsize == db->psize){
+    if (db->lsize == db->psize/(sizeof(student_t)*4)){
         db->psize /= 2;
     }
 
@@ -49,6 +50,13 @@ void db_delete(database_t *db, student_t *s){
 
 
 void db_save(database_t *db, const char *path){
+    FILE *fo = fopen(path, "w");
+    student_t *s = malloc(sizeof(student_t));
+    char query[256];
+    int i;
+
+
+    fwrite(db->data[i], sizeof(student_t), db->lsize, fo);
 
 }
 
@@ -83,5 +91,7 @@ void db_load(database_t *db, const char *path){
 
 
 void db_init(database_t *db){
-
+    db->lsize = 0;
+    db->psize = 0;
+    db->data = {};
 }

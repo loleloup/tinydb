@@ -17,13 +17,16 @@ int read_file(FILE* file){
 
 
 int main(int argc, char const **argv) {
+    char query[256];
     database_t db;
     printf("%zu\n", db.lsize);
-    //int running = 1;
 
     printf("Good luck in this projet!\n");
 
+    while (fgets(query, 256, stdin) != EOF){
 
+
+    }
 
     db_load(&db, "/home/me/CLionProjects/tinydb/students.bin");
 
