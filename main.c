@@ -2,6 +2,7 @@
 #define _GNU_SOURCE
 
 #include "student.c"
+#include "db.c"
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -16,20 +17,15 @@ int read_file(FILE* file){
 
 
 int main(int argc, char const **argv) {
-    char query[300];
-    student_t *s = malloc(sizeof(student_t));
+    database_t db;
+    printf("%zu\n", db.lsize);
     //int running = 1;
-    FILE* fo = fopen("/home/me/CLionProjects/tinydb/students.bin", "r");
-
-    fread(s, sizeof(student_t), 1, fo);
 
     printf("Good luck in this projet!\n");
 
-    //fgets(query, 100, stdin)
-    while (fread(s, sizeof(student_t), 1, fo) != EOF){
-        student_to_str(query, s);
-        printf("%s\n", query);
-    }
+
+
+    db_load(&db, "/home/me/CLionProjects/tinydb/students.bin");
 
     return 0;
 }
