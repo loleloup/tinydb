@@ -23,12 +23,13 @@ int main(int argc, char const **argv) {
 
     printf("Good luck in this projet!\n");
 
-    while (fgets(query, 256, stdin) != EOF){
+    //while (fgets(query, 256, stdin) != EOF){
 
 
-    }
+    //}
 
     db_load(&db, "/home/me/CLionProjects/tinydb/students.bin");
+    db_save(&db, "/home/me/CLionProjects/tinydb/save_test.bin");
 
     return 0;
 }

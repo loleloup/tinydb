@@ -5,7 +5,6 @@
 
 void db_add(database_t *db, student_t s){
     int i;
-    printf("adding ");
     if (db->lsize == db->psize/sizeof(student_t)) {
         db->psize *= 2;
         student_t *old = db->data;
@@ -55,13 +54,17 @@ void db_save(database_t *db, const char *path){
     char query[256];
     int i;
 
+    printf("saving database\n");
 
-    fwrite(db->data[i], sizeof(student_t), db->lsize, fo);
+    fwrite(db->data, sizeof(student_t), db->lsize, fo);
+
+    printf("databse saved!\n");
 
 }
 
+
 void db_load(database_t *db, const char *path){
-    FILE *fo = fopen(path, "r");
+    FILE *fo = fopen(path, "rb");
     student_t *s = malloc(sizeof(student_t));
     char query[256];
 
@@ -78,20 +81,16 @@ void db_load(database_t *db, const char *path){
     db->lsize = 1;
     db->psize = sizeof(student_t);
 
-    while(fread(s, sizeof(student_t), 1, fo) != EOF){
+    while(fread(s, sizeof(student_t), 1, fo) == 1){
         db_add(db, *s);
-        student_to_str(query, s);
-        printf("%s\n", query);
     }
 
-    printf("Database Loaded");
-
-
+    printf("Database Loaded\n");
 }
 
 
 void db_init(database_t *db){
     db->lsize = 0;
     db->psize = 0;
-    db->data = {};
+    //db->data = {};
 }
