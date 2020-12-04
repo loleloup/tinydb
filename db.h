@@ -47,4 +47,6 @@ void db_load(database_t *db, const char *path);
  **/
 void db_init(database_t *db);
 
+void db_find(database_t *db, char *field, char *value);
+
 #endif

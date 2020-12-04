@@ -60,6 +60,8 @@ void db_save(database_t *db, const char *path){
 
     printf("databse saved!\n");
 
+    fclose(fo);
+
 }
 
 
@@ -86,6 +88,7 @@ void db_load(database_t *db, const char *path){
     }
 
     printf("Database Loaded\n");
+    fclose(fo);
 }
 
 
@@ -93,4 +96,24 @@ void db_init(database_t *db){
     db->lsize = 0;
     db->psize = 0;
     //db->data = {};
+}
+
+
+void db_select(database_t *db, char *field, char *value){
+    int i;
+    student_t *s;
+    size_t field_offset = 0;
+
+    for (i = 0; i < db->lsize; ++i){
+        *s = db->data[i];
+        if (strcmp(field, "ID") == 0) {
+            if ((char)s->id == *value){
+                printf("%c\n", (char)s->id);
+            }
+        }
+        else if (strcmp(field, "fname")==0) { ;}
+        else if (strcmp(field, "lname")==0) { ;}
+        else if (strcmp(field, "section")==0) { ;}
+        else if (strcmp(field, "birthdate")==0) { ;}
+    }
 }
