@@ -2,9 +2,12 @@
 #include "student.h"
 
 #include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 void db_add(database_t *db, student_t s){
     int i;
+
     if (db->lsize == db->psize/sizeof(student_t)) {
         db->psize *= 2;
         student_t *old = db->data;
@@ -20,6 +23,10 @@ void db_add(database_t *db, student_t s){
         db->data[db->lsize] = s;
     }
     db->lsize += 1;
+
+    printf("lsize = %zu\n", db->lsize);
+    printf("psize = %zu\n", db->psize);
+
 }
 
 
@@ -51,8 +58,7 @@ void db_delete(database_t *db, student_t *s){
 void db_save(database_t *db, const char *path){
     FILE *fo = fopen(path, "w");
     student_t *s = malloc(sizeof(student_t));
-    char query[256];
-    int i;
+
 
     printf("saving database\n");
 
@@ -94,8 +100,8 @@ void db_load(database_t *db, const char *path){
 
 void db_init(database_t *db){
     db->lsize = 0;
-    db->psize = 0;
-    //db->data = {};
+    db->psize = sizeof(student_t)*10;
+    db->data = malloc(sizeof(student_t)*10);
 }
 
 

@@ -12,22 +12,24 @@
 #include <pthread.h>
 #include <semaphore.h>
 
+#define MAX_THREAD 4
+
 sem_t select_array;
-sem_t active_thread;
-pthread_t active_select[8];
+sem_t active_threads;
+pthread_t active_select[4];
+pthread_t active_modifier;
 
-int insert_command(char *query){
-    char *fname = malloc(64);
-    char *lname = malloc(64);
-    char *section = malloc(64);
+database_t db;
 
-    unsigned ID;
-    struct tm birthdate;
 
-    if (parse_insert(query, fname, lname, &ID, section, &birthdate)){
-        printf("insert parsing passed\n");
 
-    }
+void *insert_thread(void *arg){
+    student_t *s = (student_t*) arg;
+    db_add(&db, *s);
+    sem_post(&select_array);
+    sem_post(&active_threads);
+    pthread_exit(NULL);
+    return NULL;
 }
 
 
@@ -43,20 +45,8 @@ int update_command(char* query){
 }
 
 int select_command(char *query, database_t *db){
-    int i;
-    char *field = malloc(64);
-    char *value = malloc(64);
 
-    if (parse_selectors(query, field, value)){
-        printf("select parsing passed\n");
-        if (sem_wait(&active_thread) == 0){
-            if (sem_wait(&select_array) == 0) {
-                i = 0;
-                while (active_select[i] != 0) i++;
-                pthread_create(&active_select[i], NULL, db_select(db, field, value), NULL);
-            }
-        }
-    }
+    return 0;
 }
 
 
@@ -74,27 +64,41 @@ int delete_command(char *query){
 int main(int argc, char const **argv) {
     char query[256];
     char *rest;
-    char command[256];
-    database_t db;
-    sem_init(&select_array, 0, 1);
-    sem_init(&active_thread, 0, 8);
+    student_t s;
 
     printf("Good luck in this projet!\n");
+
+    db_init(&db);
+
 
     while (fgets(query, 256, stdin) != NULL){
         //printf("input read : %s\n", query);
         strtok_r(query, " ", &rest);
-        if (strcmp(query, "insert") == 0){
-            insert_command(rest);
+        if (strcmp(query, "insert") == 0){  //insert query
+            if (parse_insert(rest, (char *)&s.fname, (char *)&s.lname, &s.id, (char *)&s.section, &s.birthdate)){   //parse OK
+                if (sem_wait(&active_threads) == 0) { //se met en attente si il y a deja trop de thread actifs
+                    if (sem_wait(&select_array) == 0) { //Bloque nouvelles queries durant exécution
+
+                        pthread_create(&active_modifier, NULL, insert_thread, &s);
+                    }
+                    else{
+                        printf("error when waiting for A_AR");
+                    }
+                }
+                else{
+                    printf("error when waiting for A_TH");
+                }
+            }
         }
+
         else if(strcmp(query, "delete") == 0){
-            delete_command(rest);
+            //delete_command(rest, &db);
         }
         else if(strcmp(query, "update") == 0){
-            update_command(rest);
+            //update_command(rest, &db);
         }
         else if(strcmp(query, "select") == 0){
-            select_command(rest, &db);
+            //select_command(rest, &db);
         }
 
 
