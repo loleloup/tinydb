@@ -37,23 +37,32 @@ void db_delete(database_t *db, student_t *s){
 
     if (db->lsize == db->psize/(sizeof(student_t)*4)){
         db->psize /= 2;
+        student_t *old = db->data;
+        db->data = (student_t *) malloc(db->psize);
+        while (!student_equals(&old[i] ,s)){
+            db->data[i] = old[i];
+            i++;
+        }
+        db->lsize -= 1;
+        while (i < db->lsize){
+            db->data[i] = old[i+1];
+            i++;
+        }
+
+        free(old);
+    }
+    else{
+        while (!student_equals(&db->data[i], s)){
+            i++;
+        }
+        db->lsize -= 1;
+        while (i < db->lsize){
+            db->data[i] = db->data[i+1];
+            i++;
+        }
     }
 
-    student_t *old = db->data;
-    db->data = (student_t *) malloc(db->psize);
 
-    int part = (s - old)/sizeof(student_t);
-
-    for (i = 0; i < part; ++i){
-        db->data[i] = old[i];
-    }
-
-    for (i = part+1; i < db->lsize; ++i){
-        db->data[i-1] = old[i];
-    }
-
-    db->lsize -= 1;
-    free(old);
 }
 
 

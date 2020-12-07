@@ -33,11 +33,6 @@ static void wait_threads(int sig){
     return;
 }
 
-
-void *update_command(void *args){
-
-}
-
 void *select_thread(void *_args){
     struct select_args *args = (struct select_args *) _args;    //converts void* back to struct
     int i;
@@ -104,6 +99,37 @@ void *select_thread(void *_args){
 }
 
 
+void *select_command(char *field, char *value, struct select_args *selectors){
+    int i;
+
+    //initialise la db qui va contenir les résultats
+    db_empty(&selector_db);
+
+    //divide db in 4 sections and create struct for each thread
+    int step = db.lsize/4;
+    for (i=1; i<4;++i){
+        selectors[i].i_start = (step*i) + 1;
+    }
+    for (i=0; i<4;++i){
+        selectors[i].value = value;
+        selectors[i].field = field;
+        selectors[i].i_end = step*(i+1);
+    }
+    if (db.lsize%2 == 0){selectors[3].i_end += 1;}
+
+    //create threads
+    for (i=0; i<4;++i){
+        pthread_create(&threads[i], NULL, select_thread, &selectors[i]);
+    }
+    //wait for threads to finish
+    for (i=0; i<4;++i){
+        pthread_join(threads[i], NULL);
+    }
+
+}
+
+
+
 
 int main(int argc, char const **argv) {
     char query[256];
@@ -146,39 +172,33 @@ int main(int argc, char const **argv) {
         }
 
         else if(strcmp(query, "delete") == 0){
+            if (parse_selectors(rest, field, value)){   //parse OK
+
+                clock_t begin = clock();
+
+                select_command(field, value, selectors);    //sélectionne les étudiants
+
+                for (i=0;i<selector_db.lsize; ++i){
+                    s = selector_db.data[i];
+
+                }
+                clock_t end = clock();
+                double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+                printf("%f\n", time_spent);
+            }
+
+
 
         }
         else if(strcmp(query, "update") == 0){
-            //update_command(rest, &db);
+
         }
         else if(strcmp(query, "select") == 0){
             if (parse_selectors(rest, field, value)){   //parse OK
 
                 clock_t begin = clock();
 
-                //initialise la db qui va contenir les résultats
-                db_empty(&selector_db);
-
-                //divide db in 4 sections and create struct for each thread
-                int step = db.lsize/4;
-                for (i=1; i<4;++i){
-                    selectors[i].i_start = (step*i) + 1;
-                }
-                for (i=0; i<4;++i){
-                    selectors[i].value = value;
-                    selectors[i].field = field;
-                    selectors[i].i_end = step*(i+1);
-                }
-                if (db.lsize%2 == 0){selectors[3].i_end += 1;}
-
-                //create threads
-                for (i=0; i<4;++i){
-                    pthread_create(&threads[i], NULL, select_thread, &selectors[i]);
-                }
-                //wait for threads to finish
-                for (i=0; i<4;++i){
-                    pthread_join(threads[i], NULL);
-                }
+                select_command(field, value, selectors);
 
                 clock_t end = clock();
                 double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
@@ -196,8 +216,19 @@ int main(int argc, char const **argv) {
 
 
     }
+    printf("input read\n");
+    printf("%i\n", selector_db.lsize);
+    for (i=0;i<selector_db.lsize; ++i){
+        s = selector_db.data[i];
+        db_delete(&db, &s);
+    }
 
+    for (i=0;i<db.lsize; ++i){
+        s = db.data[i];
+        student_to_str(rest, &s);
+        printf("%s\n", rest);
 
+    }
 
 
     return 0;
