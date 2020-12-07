@@ -9,66 +9,99 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
-#include <pthread.h>
+#include <signal.h>
 #include <semaphore.h>
 
 #define MAX_THREAD 4
 
-sem_t select_array;
-sem_t active_threads;
-pthread_t active_select[4];
-pthread_t active_modifier;
-
+sem_t semaphores[4];
+sem_t insert_struct;
+pthread_t threads[4];
 database_t db;
 
+struct insert_args{
+    int i;
+    student_t *s;
+};
+
+struct select_args{
+    int i;
+    char *field;
+    char *value;
+} *select_args;
+
+static void wait_threads(int sig){
+    printf("sigint\n");
+    kill(0, SIGTERM);
+    return;
+}
+
+void *insert_thread(void *args){
+    printf("here");
+    struct insert_args *arg = (struct insert_args *)args;
+    printf("here2");
 
 
-void *insert_thread(void *arg){
-    student_t *s = (student_t*) arg;
-    db_add(&db, *s);
-    sem_post(&select_array);
-    sem_post(&active_threads);
-    pthread_exit(NULL);
+    char buffer[64];
+    student_to_str((char *)buffer, arg->s);
+    printf("thread %lu, index %i, student : %s\n", threads[arg->i], arg->i, buffer);
+    sem_wait(&semaphores[arg->i]);
+    db_add(&dbs[arg->i], *arg->s);
+    sem_post(&semaphores[arg->i]);
+    free(args);
     return NULL;
 }
 
 
-int update_command(char* query){
-    char* field_filter = malloc(64);
-    char* value_filter = malloc(64);
-    char* field_to_update = malloc(64);
-    char* update_value = malloc(64);
+void *update_command(void *args){
 
-    if (parse_update(query, field_filter, value_filter, field_to_update, update_value)){
-        printf("update parsing passed\n");
-    }
 }
 
-int select_command(char *query, database_t *db){
+void *select_thread(void *args){
 
-    return 0;
+    struct select_args *arg = (struct select_args *)args;
+
+    sem_wait(&semaphores[arg->i]);
+    db_select(&dbs[arg->i], arg->field, arg->value);
+    sem_post(&semaphores[arg->i]);
+    return NULL;
+
+
+
 }
 
 
-int delete_command(char *query){
-    char *field = malloc(64);
-    char *value = malloc(64);
+void *delete_command(void *args){
 
-    if (parse_selectors(query, field, value)){
-        printf("delete parsing passed\n");
-
-    }
 }
 
 
 int main(int argc, char const **argv) {
     char query[256];
     char *rest;
+
+    char field[64];
+    char value[64];
+
+    int i;
+    int db_i;
+    int min_lsize;
     student_t s;
 
-    printf("Good luck in this projet!\n");
+    struct insert_args *insert_ptr;
 
-    db_init(&db);
+    signal(SIGINT, wait_threads);
+
+    for (i = 0; i<MAX_THREAD; ++i){ //init les db
+        db_init(&dbs[i]);
+    }
+
+    for (i = 0; i<MAX_THREAD; ++i){ //init les semaphores
+        sem_init(&semaphores[i], 0, 1);
+    }
+
+
+    select_args = malloc(sizeof(struct select_args));
 
 
     while (fgets(query, 256, stdin) != NULL){
@@ -76,18 +109,27 @@ int main(int argc, char const **argv) {
         strtok_r(query, " ", &rest);
         if (strcmp(query, "insert") == 0){  //insert query
             if (parse_insert(rest, (char *)&s.fname, (char *)&s.lname, &s.id, (char *)&s.section, &s.birthdate)){   //parse OK
-                if (sem_wait(&active_threads) == 0) { //se met en attente si il y a deja trop de thread actifs
-                    if (sem_wait(&select_array) == 0) { //Bloque nouvelles queries durant exécution
+                min_lsize = dbs[0].lsize;
+                db_i = 0;
+                for (i=1; i<MAX_THREAD; ++i){   //choisi dans quelle db ajouter le student
+                    if (dbs[i].lsize <= min_lsize){
+                        min_lsize = dbs[i].lsize;
+                        db_i = i;
+                    }
+                }
+                insert_ptr = (struct insert_args *) malloc(sizeof(struct insert_args));
 
-                        pthread_create(&active_modifier, NULL, insert_thread, &s);
-                    }
-                    else{
-                        printf("error when waiting for A_AR");
-                    }
-                }
-                else{
-                    printf("error when waiting for A_TH");
-                }
+                insert_ptr->i = db_i;
+                insert_ptr->s = &s;
+
+
+                printf("ptr = %p\n", insert_ptr);
+
+                student_to_str(rest, &s);
+                printf("created thread %lu, index %i, student : %s\n", threads[db_i], db_i, rest);
+                pthread_create(&threads[db_i], NULL, insert_thread, &insert_ptr);
+
+
             }
         }
 
@@ -98,14 +140,34 @@ int main(int argc, char const **argv) {
             //update_command(rest, &db);
         }
         else if(strcmp(query, "select") == 0){
-            //select_command(rest, &db);
+            if (parse_selectors(rest, field, value)){   //parse OK
+                for (i=0; i<MAX_THREAD; ++i){   //choisi dans quelle db ajouter le student
+                    select_args->i = db_i;
+                    select_args->field = field;
+                    select_args->value = value;
+                    pthread_create(&threads[db_i], NULL, select_thread, select_args);
+                }
+
+
+
+            }
         }
 
 
     }
 
-    db_load(&db, "/home/me/CLionProjects/tinydb/students.bin");
-    db_save(&db, "/home/me/CLionProjects/tinydb/save_test.bin");
+    for (i=0; i<MAX_THREAD; ++i){
+        pthread_join(threads[i], NULL);
+    }
+
+    int j;
+    for (i=0; i<MAX_THREAD; ++i){
+        for (j=0; j<dbs[i].lsize; ++j){
+            student_to_str(rest, &dbs[i].data[j]);
+            printf("%s\n", rest);
+        }
+    }
+
 
     return 0;
 }

@@ -4,9 +4,12 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <time.h>
+#include <string.h>
 
 void db_add(database_t *db, student_t s){
     int i;
+    char buffer[64];
 
     if (db->lsize == db->psize/sizeof(student_t)) {
         db->psize *= 2;
@@ -23,9 +26,8 @@ void db_add(database_t *db, student_t s){
         db->data[db->lsize] = s;
     }
     db->lsize += 1;
-
-    printf("lsize = %zu\n", db->lsize);
-    printf("psize = %zu\n", db->psize);
+    student_to_str((char *)buffer, &s);
+    printf("added %s\n", buffer);
 
 }
 
@@ -100,8 +102,8 @@ void db_load(database_t *db, const char *path){
 
 void db_init(database_t *db){
     db->lsize = 0;
-    db->psize = sizeof(student_t)*10;
-    db->data = malloc(sizeof(student_t)*10);
+    db->psize = sizeof(student_t)*5;
+    db->data = malloc(sizeof(student_t)*5);
 }
 
 
@@ -110,16 +112,53 @@ void db_select(database_t *db, char *field, char *value){
     student_t *s;
     size_t field_offset = 0;
 
-    for (i = 0; i < db->lsize; ++i){
-        *s = db->data[i];
-        if (strcmp(field, "ID") == 0) {
+
+    if (strcmp(field, "ID") == 0) {
+        for (i = 0; i < db->lsize; ++i){
+            *s = db->data[i];
             if ((char)s->id == *value){
                 printf("%c\n", (char)s->id);
             }
         }
-        else if (strcmp(field, "fname")==0) { ;}
-        else if (strcmp(field, "lname")==0) { ;}
-        else if (strcmp(field, "section")==0) { ;}
-        else if (strcmp(field, "birthdate")==0) { ;}
+    }
+
+    else if (strcmp(field, "fname")==0) {
+        for (i = 0; i < db->lsize; ++i){
+            *s = db->data[i];
+            if (strcmp(value, s->fname) == 0){
+                printf("%s\n", s->fname);
+            }
+        }
+    }
+    else if (strcmp(field, "lname")==0) {
+        for (i = 0; i < db->lsize; ++i) {
+            *s = db->data[i];
+            if (strcmp(value, s->lname) == 0) {
+                printf("%s\n", s->lname);
+            }
+        }
+    }
+    else if (strcmp(field, "section")==0) {
+        for (i = 0; i < db->lsize; ++i) {
+            *s = db->data[i];
+            if (strcmp(value, s->section) == 0) {
+                printf("%s\n", s->section);
+            }
+        }
+    }
+    else if (strcmp(field, "birthdate")==0) {
+        struct tm *date;
+        time_t base;
+        time_t stud;
+        strptime(value, "%d/%m/%Y", date);
+
+        base = mktime(date);
+        for (i = 0; i < db->lsize; ++i){
+            *s = db->data[i];
+            stud = mktime(&s->birthdate);
+            if (base == stud){
+                printf("%s\n", value);
+            }
+        }
     }
 }
