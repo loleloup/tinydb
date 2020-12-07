@@ -14,21 +14,18 @@
 
 #define MAX_THREAD 4
 
-sem_t semaphores[4];
+sem_t selector_db_sem;
 sem_t insert_struct;
 pthread_t threads[4];
 database_t db;
-
-struct insert_args{
-    int i;
-    student_t *s;
-};
+database_t selector_db;
 
 struct select_args{
-    int i;
+    int i_start;
+    int i_end;
     char *field;
     char *value;
-} *select_args;
+};
 
 static void wait_threads(int sig){
     printf("sigint\n");
@@ -36,44 +33,76 @@ static void wait_threads(int sig){
     return;
 }
 
-void *insert_thread(void *args){
-    printf("here");
-    struct insert_args *arg = (struct insert_args *)args;
-    printf("here2");
-
-
-    char buffer[64];
-    student_to_str((char *)buffer, arg->s);
-    printf("thread %lu, index %i, student : %s\n", threads[arg->i], arg->i, buffer);
-    sem_wait(&semaphores[arg->i]);
-    db_add(&dbs[arg->i], *arg->s);
-    sem_post(&semaphores[arg->i]);
-    free(args);
-    return NULL;
-}
-
 
 void *update_command(void *args){
 
 }
 
-void *select_thread(void *args){
+void *select_thread(void *_args){
+    struct select_args *args = (struct select_args *) _args;    //converts void* back to struct
+    int i;
+    student_t s;
+    //printf("value = %s, field = %s, i_start = %i, i_end = %i\n", args->value, args->field, args->i_start, args->i_end);
 
-    struct select_args *arg = (struct select_args *)args;
+    if (strcmp(args->field, "ID") == 0) {
+        for (i = args->i_start; i <= args->i_end; ++i){
+            s = db.data[i];
+            if (s.id == (unsigned) atol(args->value)){
+                sem_wait(&selector_db_sem);
+                db_add(&selector_db, s);
+                sem_post(&selector_db_sem);
+            }}}
 
-    sem_wait(&semaphores[arg->i]);
-    db_select(&dbs[arg->i], arg->field, arg->value);
-    sem_post(&semaphores[arg->i]);
+    else if (strcmp(args->field, "fname")==0) {
+        for (i = args->i_start; i <= args->i_end; ++i){
+            s = db.data[i];
+            if (strcmp(args->value, s.fname) == 0){
+                sem_wait(&selector_db_sem);
+                db_add(&selector_db, s);
+                sem_post(&selector_db_sem);
+            }}}
+
+    else if (strcmp(args->field, "lname")==0) {
+        for (i = args->i_start; i <= args->i_end; ++i){
+            s = db.data[i];
+            if (strcmp(args->value, s.lname) == 0) {
+                sem_wait(&selector_db_sem);
+                db_add(&selector_db, s);
+                sem_post(&selector_db_sem);
+            }}}
+
+    else if (strcmp(args->field, "section")==0) {
+
+        for (i = args->i_start; i <= args->i_end; ++i){
+            s = db.data[i];
+            if (strcmp(args->value, s.section) == 0) {
+                sem_wait(&selector_db_sem);
+                db_add(&selector_db, s);
+                sem_post(&selector_db_sem);
+            }}}
+
+    else if (strcmp(args->field, "birthdate")==0) {
+        struct tm *date;
+        time_t base;
+        time_t stud;
+        strptime(args->value, "%d/%m/%Y", date);
+
+        base = mktime(date);
+        for (i = args->i_start; i <= args->i_end; ++i){
+            s = db.data[i];
+            stud = mktime(&s.birthdate);
+            if (base == stud){
+                sem_wait(&selector_db_sem);
+                db_add(&selector_db, s);
+                sem_post(&selector_db_sem);
+            }}}
+
     return NULL;
 
 
 
 }
 
-
-void *delete_command(void *args){
-
-}
 
 
 int main(int argc, char const **argv) {
@@ -84,70 +113,82 @@ int main(int argc, char const **argv) {
     char value[64];
 
     int i;
-    int db_i;
-    int min_lsize;
+
+    struct select_args selectors[4];
+    selectors[0].i_start = 0; //par défaut
+
     student_t s;
 
-    struct insert_args *insert_ptr;
-
     signal(SIGINT, wait_threads);
-
-    for (i = 0; i<MAX_THREAD; ++i){ //init les db
-        db_init(&dbs[i]);
-    }
-
-    for (i = 0; i<MAX_THREAD; ++i){ //init les semaphores
-        sem_init(&semaphores[i], 0, 1);
-    }
+    db_init(&db);
 
 
-    select_args = malloc(sizeof(struct select_args));
+    sem_init(&selector_db_sem, 0, 1);
+
+
+
 
 
     while (fgets(query, 256, stdin) != NULL){
-        //printf("input read : %s\n", query);
+        printf("input read : %s\n", query);
         strtok_r(query, " ", &rest);
         if (strcmp(query, "insert") == 0){  //insert query
             if (parse_insert(rest, (char *)&s.fname, (char *)&s.lname, &s.id, (char *)&s.section, &s.birthdate)){   //parse OK
-                min_lsize = dbs[0].lsize;
-                db_i = 0;
-                for (i=1; i<MAX_THREAD; ++i){   //choisi dans quelle db ajouter le student
-                    if (dbs[i].lsize <= min_lsize){
-                        min_lsize = dbs[i].lsize;
-                        db_i = i;
-                    }
-                }
-                insert_ptr = (struct insert_args *) malloc(sizeof(struct insert_args));
+                clock_t begin = clock();
 
-                insert_ptr->i = db_i;
-                insert_ptr->s = &s;
+                db_add(&db, s);
 
-
-                printf("ptr = %p\n", insert_ptr);
-
-                student_to_str(rest, &s);
-                printf("created thread %lu, index %i, student : %s\n", threads[db_i], db_i, rest);
-                pthread_create(&threads[db_i], NULL, insert_thread, &insert_ptr);
-
+                clock_t end = clock();
+                double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+                //printf("%f\n", time_spent);
 
             }
         }
 
         else if(strcmp(query, "delete") == 0){
-            //delete_command(rest, &db);
+
         }
         else if(strcmp(query, "update") == 0){
             //update_command(rest, &db);
         }
         else if(strcmp(query, "select") == 0){
             if (parse_selectors(rest, field, value)){   //parse OK
-                for (i=0; i<MAX_THREAD; ++i){   //choisi dans quelle db ajouter le student
-                    select_args->i = db_i;
-                    select_args->field = field;
-                    select_args->value = value;
-                    pthread_create(&threads[db_i], NULL, select_thread, select_args);
+
+                clock_t begin = clock();
+
+                //initialise la db qui va contenir les résultats
+                db_empty(&selector_db);
+
+                //divide db in 4 sections and create struct for each thread
+                int step = db.lsize/4;
+                for (i=1; i<4;++i){
+                    selectors[i].i_start = (step*i) + 1;
+                }
+                for (i=0; i<4;++i){
+                    selectors[i].value = value;
+                    selectors[i].field = field;
+                    selectors[i].i_end = step*(i+1);
+                }
+                if (db.lsize%2 == 0){selectors[3].i_end += 1;}
+
+                //create threads
+                for (i=0; i<4;++i){
+                    pthread_create(&threads[i], NULL, select_thread, &selectors[i]);
+                }
+                //wait for threads to finish
+                for (i=0; i<4;++i){
+                    pthread_join(threads[i], NULL);
                 }
 
+                clock_t end = clock();
+                double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+                printf("%f\n", time_spent);
+
+                //printf("selector size = %zu\n", selector_db.lsize);
+                for (i=0; i<selector_db.lsize; ++i){
+                    student_to_str(rest, &selector_db.data[i]);
+                    printf("%s\n", rest);
+                }
 
 
             }
@@ -156,17 +197,7 @@ int main(int argc, char const **argv) {
 
     }
 
-    for (i=0; i<MAX_THREAD; ++i){
-        pthread_join(threads[i], NULL);
-    }
 
-    int j;
-    for (i=0; i<MAX_THREAD; ++i){
-        for (j=0; j<dbs[i].lsize; ++j){
-            student_to_str(rest, &dbs[i].data[j]);
-            printf("%s\n", rest);
-        }
-    }
 
 
     return 0;

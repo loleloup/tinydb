@@ -27,7 +27,7 @@ void db_add(database_t *db, student_t s){
     }
     db->lsize += 1;
     student_to_str((char *)buffer, &s);
-    printf("added %s\n", buffer);
+    //printf("added %s\n", buffer);
 
 }
 
@@ -102,8 +102,8 @@ void db_load(database_t *db, const char *path){
 
 void db_init(database_t *db){
     db->lsize = 0;
-    db->psize = sizeof(student_t)*5;
-    db->data = malloc(sizeof(student_t)*5);
+    db->psize = sizeof(student_t)*10;
+    db->data = malloc(sizeof(student_t)*10);
 }
 
 
@@ -161,4 +161,9 @@ void db_select(database_t *db, char *field, char *value){
             }
         }
     }
+}
+
+void db_empty(database_t *db){
+    free(db->data);
+    db_init(db);
 }

@@ -71,6 +71,7 @@ bool parse_selectors(char* query, char* field, char* value) {
     if (token == NULL) {
         return false;
     }
+    token = strtok_r(NULL, "\n", &token);
     strcpy(value, token);
     return true;
 }
