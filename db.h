@@ -47,7 +47,7 @@ void db_load(database_t *db, const char *path);
  **/
 void db_init(database_t *db);
 
-void db_select(database_t *db, char *field, char *value);
+void db_update(database_t *db, student_t *old, student_t *updated);
 
 void db_empty(database_t *db);
 

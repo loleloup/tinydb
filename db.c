@@ -33,13 +33,12 @@ void db_add(database_t *db, student_t s){
 
 
 void db_delete(database_t *db, student_t *s){
-    int i;
-
+    int i = 0;
     if (db->lsize == db->psize/(sizeof(student_t)*4)){
         db->psize /= 2;
         student_t *old = db->data;
         db->data = (student_t *) malloc(db->psize);
-        while (!student_equals(&old[i] ,s)){
+        while (!student_equals(&old[i] ,s) && i < db->lsize){
             db->data[i] = old[i];
             i++;
         }
@@ -51,8 +50,9 @@ void db_delete(database_t *db, student_t *s){
 
         free(old);
     }
+
     else{
-        while (!student_equals(&db->data[i], s)){
+        while (!student_equals(&db->data[i], s) && i < db->lsize){
             i++;
         }
         db->lsize -= 1;
@@ -68,14 +68,12 @@ void db_delete(database_t *db, student_t *s){
 
 void db_save(database_t *db, const char *path){
     FILE *fo = fopen(path, "w");
-    student_t *s = malloc(sizeof(student_t));
-
 
     printf("saving database\n");
 
     fwrite(db->data, sizeof(student_t), db->lsize, fo);
 
-    printf("databse saved!\n");
+    printf("database saved!\n");
 
     fclose(fo);
 
@@ -85,7 +83,6 @@ void db_save(database_t *db, const char *path){
 void db_load(database_t *db, const char *path){
     FILE *fo = fopen(path, "rb");
     student_t *s = malloc(sizeof(student_t));
-    char query[256];
 
     printf("Loading Database\n");
 
@@ -116,60 +113,13 @@ void db_init(database_t *db){
 }
 
 
-void db_select(database_t *db, char *field, char *value){
+void db_update(database_t *db, student_t *old, student_t *updated){
     int i;
-    student_t *s;
-    size_t field_offset = 0;
 
-
-    if (strcmp(field, "ID") == 0) {
-        for (i = 0; i < db->lsize; ++i){
-            *s = db->data[i];
-            if ((char)s->id == *value){
-                printf("%c\n", (char)s->id);
-            }
-        }
+    while (!student_equals(&db->data[i], old) && i < db->lsize){
+        i++;
     }
-
-    else if (strcmp(field, "fname")==0) {
-        for (i = 0; i < db->lsize; ++i){
-            *s = db->data[i];
-            if (strcmp(value, s->fname) == 0){
-                printf("%s\n", s->fname);
-            }
-        }
-    }
-    else if (strcmp(field, "lname")==0) {
-        for (i = 0; i < db->lsize; ++i) {
-            *s = db->data[i];
-            if (strcmp(value, s->lname) == 0) {
-                printf("%s\n", s->lname);
-            }
-        }
-    }
-    else if (strcmp(field, "section")==0) {
-        for (i = 0; i < db->lsize; ++i) {
-            *s = db->data[i];
-            if (strcmp(value, s->section) == 0) {
-                printf("%s\n", s->section);
-            }
-        }
-    }
-    else if (strcmp(field, "birthdate")==0) {
-        struct tm *date;
-        time_t base;
-        time_t stud;
-        strptime(value, "%d/%m/%Y", date);
-
-        base = mktime(date);
-        for (i = 0; i < db->lsize; ++i){
-            *s = db->data[i];
-            stud = mktime(&s->birthdate);
-            if (base == stud){
-                printf("%s\n", value);
-            }
-        }
-    }
+    db->data[i] = *updated;
 }
 
 void db_empty(database_t *db){
