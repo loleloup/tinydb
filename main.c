@@ -45,12 +45,14 @@ void *select_thread(void *_args){
     struct select_args *args = (struct select_args *) _args;    //converts void* back to struct
     int i;
     student_t s;
-    //printf("value = %s, field = %s, i_start = %i, i_end = %i\n", args->value, args->field, args->i_start, args->i_end);
+    printf("value = %s, field = %s, i_start = %i, i_end = %i\n", args->value, args->field, args->i_start, args->i_end);
 
-    if (strcmp(args->field, "ID") == 0) {
+    if (strcmp(args->field, "id") == 0) {
         for (i = args->i_start; i <= args->i_end; ++i){
             s = db.data[i];
-            if (s.id == (unsigned) atol(args->value)){
+
+            if (s.id == (unsigned) strtoul(args->value, NULL, 10)){
+
                 sem_wait(&selector_db_sem);
                 db_add(&selector_db, s);
                 sem_post(&selector_db_sem);
@@ -140,18 +142,18 @@ void *update_thread(void *_args){
     student_t old;
     //printf("value = %s, field = %s, i_start = %i, i_end = %i\n", args->value, args->field, args->i_start, args->i_end);
 
-    if (strcmp(args->field, "ID") == 0) {
+    if (strcmp(args->field, "id") == 0) {
         for (i = args->i_start; i <= args->i_end; ++i) {
             old = selector_db.data[i];
-            selector_db.data[i].id = (unsigned) atol(args->value);
-            db_update(&db, &selector_db.data[i], &old);
+            selector_db.data[i].id = (unsigned) strtoul(args->value, NULL, 10);
+            db_update(&db, &old, &selector_db.data[i]);
         }}
 
     else if (strcmp(args->field, "fname")==0) {
         for (i = args->i_start; i <= args->i_end; ++i) {
             old = selector_db.data[i];
             strcpy(selector_db.data[i].fname, args->value);
-            db_update(&db, &selector_db.data[i], &old);
+            db_update(&db, &old, &selector_db.data[i]);
         }}
 
     else if (strcmp(args->field, "lname")==0) {
@@ -159,15 +161,14 @@ void *update_thread(void *_args){
             old = selector_db.data[i];
 
             strcpy(selector_db.data[i].lname, args->value);
-            printf("%s\n", selector_db.data[i].lname);
-            db_update(&db, &selector_db.data[i], &old);
+            db_update(&db, &old, &selector_db.data[i]);
         }}
 
     else if (strcmp(args->field, "section")==0) {
         for (i = args->i_start; i <= args->i_end; ++i) {
             old = selector_db.data[i];
             strcpy(selector_db.data[i].section, args->value);
-            db_update(&db, &selector_db.data[i], &old);
+            db_update(&db, &old, &selector_db.data[i]);
         }}
 
     else if (strcmp(args->field, "birthdate")==0) {
@@ -177,7 +178,7 @@ void *update_thread(void *_args){
         for (i = args->i_start; i <= args->i_end; ++i) {
             old = selector_db.data[i];
             selector_db.data[i].birthdate = date;
-            db_update(&db, &selector_db.data[i], &old);
+            db_update(&db, &old, &selector_db.data[i]);
         }}
 
     return NULL;
@@ -187,26 +188,33 @@ void *update_thread(void *_args){
 
 void *update_command(char *field, char *value, struct select_args *selectors){
     int i;
+    if (selector_db.lsize > 1) {
+        int step = selector_db.lsize / 4;
+        for (i = 1; i < 4; ++i) {
+            selectors[i].i_start = (step * i) + 1;
+        }
+        for (i = 0; i < 4; ++i) {
+            selectors[i].value = value;
+            selectors[i].field = field;
+            selectors[i].i_end = step * (i + 1);
+        }
+        if (selector_db.lsize % 2 == 0) { selectors[3].i_end += 1; }
 
-    int step = selector_db.lsize/4;
-    for (i=1; i<4;++i){
-        selectors[i].i_start = (step*i) + 1;
+        for (i = 0; i < 4; ++i) {
+            pthread_create(&threads[i], NULL, update_thread, &selectors[i]);
+        }
+        //wait for threads to finish
+        for (i = 0; i < 4; ++i) {
+            pthread_join(threads[i], NULL);
+        }
     }
-    for (i=0; i<4;++i){
-        selectors[i].value = value;
-        selectors[i].field = field;
-        selectors[i].i_end = step*(i+1);
+    else{
+        selectors[0].i_start = 0;
+        selectors[0].i_end = 0;
+        selectors[0].value = value;
+        selectors[0].field = field;
+        update_thread(&selectors[0]);
     }
-    if (selector_db.lsize%2 == 0){selectors[3].i_end += 1;}
-
-    for (i=0; i<4;++i){
-        pthread_create(&threads[i], NULL, update_thread, &selectors[i]);
-    }
-    //wait for threads to finish
-    for (i=0; i<4;++i){
-        pthread_join(threads[i], NULL);
-    }
-
     return NULL;
 }
 
